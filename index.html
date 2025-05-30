@@ -1,0 +1,475 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Monthly Expense Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Optimized Tailwind CSS utilities with fixed backgrounds */
+        :root {
+            --tw-bg-opacity: 1;
+            --tw-text-opacity: 1;
+            --tw-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --tw-ring-offset-width: 0px;
+            --tw-ring-opacity: 1;
+            --tw-scale-x: 1;
+            --tw-scale-y: 1;
+        }
+        .bg-gray-100 { background-color: rgba(243, 244, 246, var(--tw-bg-opacity)); }
+        .bg-white { background-color: rgba(255, 255, 255, var(--tw-bg-opacity)); }
+        .bg-black { background-color: rgba(0, 0, 0, var(--tw-bg-opacity)); }
+        .bg-opacity-50 { --tw-bg-opacity: 0.5; }
+        .min-h-screen { min-height: 100vh; }
+        .container { width: 100%; margin-left: auto; margin-right: auto; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .p-4 { padding: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .p-2 { padding: 0.5rem; }
+        .sm\:p-6 { padding: 1.5rem; }
+        .max-w-4xl { max-width: 56rem; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .shadow-lg { box-shadow: var(--tw-shadow); }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .font-bold { font-weight: 700; }
+        .text-gray-800 { color: rgba(31, 41, 55, var(--tw-text-opacity)); }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .font-semibold { font-weight: 600; }
+        .text-blue-600 { color: rgba(37, 99, 235, var(--tw-text-opacity)); }
+        .text-blue-800 { color: rgba(30, 64, 175, var(--tw-text-opacity)); }
+        .hover\:underline:hover { text-decoration: underline; }
+        .ml-4 { margin-left: 1rem; }
+        .grid { display: grid; }
+        .gap-4 { gap: 1rem; }
+        .block { display: block; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .font-medium { font-weight: 500; }
+        .text-gray-700 { color: rgba(55, 65, 81, var(--tw-text-opacity)); }
+        .text-gray-600 { color: rgba(75, 85, 99, var(--tw-text-opacity)); }
+        .mt-1 { margin-top: 0.25rem; }
+        .mt-4 { margin-top: 1rem; }
+        .w-full { width: 100%; }
+        .border { border-width: 1px; border-color: rgba(209, 213, 219, var(--tw-bg-opacity)); }
+        .rounded-md { border-radius: 0.375rem; }
+        .focus\:ring-2:focus { --tw-ring-offset-width: 2px; }
+        .focus\:ring-blue-500:focus { --tw-ring-color: rgba(59, 130, 246, var(--tw-ring-opacity)); }
+        .bg-green-600 { background-color: rgba(22, 163, 74, var(--tw-bg-opacity)); }
+        .text-white { color: rgba(255, 255, 255, var(--tw-text-opacity)); }
+        .hover\:bg-green-700:hover { background-color: rgba(21, 128, 61, var(--tw-bg-opacity)); }
+        .text-red-500 { color: rgba(239, 68, 68, 1); }
+        .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .fixed { position: fixed; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .max-w-md { max-width: 28rem; }
+        .transform { transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+        .scale-95 { --tw-scale-x: 0.95; --tw-scale-y: 0.95; }
+        .scale-100 { --tw-scale-x: 1; --tw-scale-y: 1; }
+        .float-right { float: right; }
+        .cursor-pointer { cursor: pointer; }
+        .modal { transition: opacity 0.3s ease-in-out; }
+        .modal-content { transition: transform 0.3s ease-in-out; }
+        .btn { transition: background-color 0.2s ease-in-out; }
+        .expense-item { transition: background-color 0.2s ease-in-out; }
+        .expense-item:hover { background-color: #f1f5f9; }
+        .h-64 { height: 16rem; }
+        .max-h-64 { max-height: 16rem; }
+        .max-w-full { max-width: 100%; }
+        .overflow-hidden { overflow: hidden; }
+        .hidden { display: none; }
+        .text-left { text-align: left; }
+        @media (min-width: 640px) {
+            .sm\:p-6 { padding: 1.5rem; }
+            .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <div class="container mx-auto p-4 sm:p-6 max-w-4xl">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-left">💰 Monthly Expense Tracker</h2>
+            <div class="flex items-center">
+                <p class="text-lg">Monthly Income: <span id="monthlyIncome" class="font-semibold">₹5,000</span></p>
+                <button onclick="openIncomeModal()" class="ml-4 text-blue-600 hover:underline">Edit Income</button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 text-left">Add New Expense</h2>
+            <div class="grid gap-4">
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+                    <select id="category" class="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Category</option>
+                        <option value="Food & Groceries">🍽️ Food & Groceries</option>
+                        <option value="Transportation">🚌 Transportation</option>
+                        <option value="Mobile & Internet">📱 Mobile & Internet</option>
+                        <option value="Rent & Utilities">🏠 Rent & Utilities</option>
+                        <option value="Healthcare">🏥 Healthcare</option>
+                        <option value="Education">📚 Education</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Clothing">👕 Clothing</option>
+                        <option value="Personal Care">🧴 Personal Care</option>
+                        <option value="Loan EMI">🏦 Loan EMI</option>
+                        <option value="Personal Loan">💰 Personal Loan</option>
+                        <option value="Home Loan">🏡 Home Loan</option>
+                        <option value="Vehicle Loan">🚗 Vehicle Loan</option>
+                        <option value="Education Loan">🎓 Education Loan</option>
+                        <option value="Credit Card EMI">💳 Credit Card EMI</option>
+                        <option value="Savings">💎 Savings</option>
+                        <option value="Others">🔄 Others</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <input type="text" id="description" placeholder="Enter description" class="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Amount (₹)</label>
+                    <input type="number" id="amount" placeholder="Enter amount" min="0" class="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <button class="btn bg-green-600 text-white p-2 rounded-md hover:bg-green-700 w-full" onclick="addExpense()">Add Expense</button>
+                </div>
+                <p id="error" class="text-red-500 text-sm"></p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-800 text-left">💵 Total Expenses</h2>
+                <p id="totalExpenses" class="text-2xl font-bold text-gray-900">₹0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-800 text-left">💰 Remaining Budget</h2>
+                <p id="remainingBudget" class="text-2xl font-bold text-gray-900">₹5,000</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-800 text-left">📊 Budget Usage</h2>
+                <p id="budgetUsage" class="text-2xl font-bold text-gray-900">0%</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 text-left">📅 Monthly Expense Dashboard</h2>
+            <div class="flex items-center justify-between mb-4">
+                <button onclick="prevMonth()" class="text-blue-600 hover:text-blue-800 p-2">◄</button>
+                <span id="currentMonth" class="text-lg font-medium">May 2025</span>
+                <button onclick="nextMonth()" class="text-blue-600 hover:text-blue-800 p-2">►</button>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 text-left">💰 Monthly Overview</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <p class="text-left">Total Expenses: <span id="monthlyTotal">₹0</span></p>
+                <p class="text-left">Average Daily: <span id="averageDaily">₹0</span></p>
+                <p class="text-left">Expense Days: <span id="expenseDays">0</span></p>
+                <p class="text-left">Budget Used: <span id="monthlyBudgetUsage">0%</span></p>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 text-left">📊 Category Breakdown</h3>
+            <div id="categoryBreakdown" class="mb-4 text-left"></div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 text-left">📈 Monthly Expense Chart</h3>
+            <div class="overflow-hidden max-h-64 max-w-full">
+                <canvas id="expenseChart" class="w-full"></canvas>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2 mt-4 text-left">📈 Spending Pattern</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <p class="text-left">Highest Day: <span id="highestDay">-</span></p>
+                <p class="text-left">Lowest Day: <span id="lowestDay">-</span></p>
+                <p class="text-left">Most Active Category: <span id="mostActiveCategory">-</span></p>
+                <p class="text-left">Spending Trend: <span id="spendingTrend">-</span></p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4 text-left">📋 Recent Expenses</h2>
+            <div id="recentExpenses" class="text-left">No expenses added yet. Start tracking your spending!</div>
+        </div>
+
+        <div id="incomeModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="modal-content bg-white rounded-lg p-6 w-full max-w-md transform scale-95">
+                <span class="close text-2xl font-bold text-gray-600 cursor-pointer float-right" onclick="closeIncomeModal()">×</span>
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 text-left">💰 Update Monthly Income</h2>
+                <div class="grid gap-4">
+                    <div>
+                        <label for="newIncome" class="block text-sm font-medium text-gray-700">New Monthly Income (₹)</label>
+                        <input type="number" id="newIncome" placeholder="Enter new income" min="0" class="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="incomeReason" class="block text-sm font-medium text-gray-700">Reason for Change (Optional)</label>
+                        <select id="incomeReason" class="mt-1 w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select reason</option>
+                            <option value="Salary Increment">💼 Salary Increment</option>
+                            <option value="Job Change">🔄 Job Change</option>
+                            <option value="Promotion">📈 Promotion</option>
+                            <option value="Additional Income">💰 Additional Income</option>
+                            <option value="Business Growth">🚀 Business Growth</option>
+                            <option value="Freelance Work">💻 Freelance Work</option>
+                            <option value="Other">🔄 Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn bg-green-600 text-white p-2 rounded-md hover:bg-green-700 w-full" onclick="updateIncome()">Update Income</button>
+                    </div>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mt-4 text-left">📊 Income History</h3>
+                <div id="incomeHistory" class="text-left"></div>
+            </div>
+        </div>
+
+        <script>
+            let monthlyIncome = 5000;
+            let expenses = [];
+            let incomeHistory = [];
+            let currentMonth = new Date(2025, 4);
+            let expenseChart;
+
+            // Load data from localStorage
+            function loadData() {
+                const savedExpenses = localStorage.getItem('expenses');
+                const savedIncome = localStorage.getItem('monthlyIncome');
+                const savedIncomeHistory = localStorage.getItem('incomeHistory');
+                if (savedExpenses) expenses = JSON.parse(savedExpenses);
+                if (savedIncome) monthlyIncome = parseFloat(savedIncome);
+                if (savedIncomeHistory) incomeHistory = JSON.parse(savedIncomeHistory);
+            }
+
+            // Save data to localStorage
+            function saveData() {
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                localStorage.setItem('monthlyIncome', monthlyIncome);
+                localStorage.setItem('incomeHistory', JSON.stringify(incomeHistory));
+            }
+
+            // Debounce function to limit UI updates
+            function debounce(fn, ms) {
+                let timeout;
+                return (...args) => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => fn(...args), ms);
+                };
+            }
+
+            function addExpense() {
+                const category = document.getElementById('category').value;
+                const description = document.getElementById('description').value;
+                const amount = parseFloat(document.getElementById('amount').value);
+                const error = document.getElementById('error');
+
+                if (!category || !description || isNaN(amount) || amount <= 0) {
+                    error.textContent = 'Please fill all fields with valid data.';
+                    return;
+                }
+                error.textContent = '';
+
+                expenses.push({ category, description, amount, date: new Date() });
+                saveData();
+                updateUI();
+                clearForm();
+            }
+
+            function updateIncome() {
+                const newIncome = parseFloat(document.getElementById('newIncome').value);
+                const reason = document.getElementById('incomeReason').value;
+                if (isNaN(newIncome) || newIncome <= 0) {
+                    alert('Please enter a valid income amount.');
+                    return;
+                }
+                monthlyIncome = newIncome;
+                const historyEntry = {
+                    date: new Date().toLocaleDateString(),
+                    amount: newIncome,
+                    reason: reason || 'No reason'
+                };
+                incomeHistory.push(historyEntry);
+                saveData();
+                updateUI();
+                closeIncomeModal();
+            }
+
+            function updateUI() {
+                const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+                const remainingBudget = monthlyIncome - totalExpenses;
+                const budgetUsage = monthlyIncome ? (totalExpenses / monthlyIncome * 100).toFixed(2) : 0;
+
+                document.getElementById('monthlyIncome').textContent = `₹${monthlyIncome}`;
+                document.getElementById('totalExpenses').textContent = `₹${totalExpenses}`;
+                document.getElementById('remainingBudget').textContent = `₹${remainingBudget}`;
+                document.getElementById('budgetUsage').textContent = `${budgetUsage}%`;
+
+                const monthlyExpenses = expenses.filter(exp => exp.date.getMonth() === currentMonth.getMonth() && exp.date.getFullYear() === currentMonth.getFullYear());
+                const monthlyTotal = monthlyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                const expenseDays = new Set(monthlyExpenses.map(exp => exp.date.toDateString())).size;
+                const averageDaily = expenseDays ? (monthlyTotal / expenseDays).toFixed(2) : 0;
+
+                document.getElementById('currentMonth').textContent = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+                document.getElementById('monthlyTotal').textContent = `₹${monthlyTotal}`;
+                document.getElementById('averageDaily').textContent = `₹${averageDaily}`;
+                document.getElementById('expenseDays').textContent = expenseDays;
+                document.getElementById('monthlyBudgetUsage').textContent = monthlyIncome ? (monthlyTotal / monthlyIncome * 100).toFixed(2) + '%' : '0%';
+
+                const categoryTotals = monthlyExpenses.reduce((acc, exp) => {
+                    acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+                    return acc;
+                }, {});
+                document.getElementById('categoryBreakdown').innerHTML = Object.entries(categoryTotals)
+                    .map(([cat, amt]) => `<p class="text-sm">${cat}: ₹${amt}</p>`).join('');
+
+                const dailyTotals = monthlyExpenses.reduce((acc, exp) => {
+                    const date = exp.date.toDateString();
+                    acc[date] = (acc[date] || 0) + exp.amount;
+                    return acc;
+                }, {});
+                const highestDay = Object.entries(dailyTotals).reduce((a, b) => a[1] > b[1] ? a : b, ['-', 0])[0];
+                const lowestDay = Object.entries(dailyTotals).reduce((a, b) => a[1] < b[1] ? a : b, ['-', Infinity])[0];
+                const mostActiveCategory = Object.entries(categoryTotals).reduce((a, b) => a[1] > b[1] ? a : b, ['-', 0])[0];
+                const spendingTrend = monthlyExpenses.length > 1 ? (monthlyTotal > monthlyExpenses[0].amount ? 'Increasing' : 'Decreasing') : '-';
+
+                document.getElementById('highestDay').textContent = highestDay;
+                document.getElementById('lowestDay').textContent = lowestDay;
+                document.getElementById('mostActiveCategory').textContent = mostActiveCategory;
+                document.getElementById('spendingTrend').textContent = spendingTrend;
+
+                document.getElementById('recentExpenses').innerHTML = expenses.length
+                    ? expenses.map(exp => `<div class="expense-item p-2 rounded-md">${exp.date.toLocaleDateString()}: ${exp.category} - ${exp.description} (₹${exp.amount})</div>`).join('')
+                    : 'No expenses added yet. Start tracking your spending!';
+
+                document.getElementById('incomeHistory').innerHTML = incomeHistory.length
+                    ? incomeHistory.map(entry => `<p class="text-sm">${entry.date}: ₹${entry.amount} (${entry.reason})</p>`).join('')
+                    : 'No income history available.';
+
+                updateExpenseChart(categoryTotals);
+            }
+
+            const debouncedUpdateUI = debounce(updateUI, 100);
+
+            function updateExpenseChart(categoryTotals) {
+                const ctx = document.getElementById('expenseChart').getContext('2d');
+                const labels = Object.keys(categoryTotals);
+                const data = Object.values(categoryTotals);
+
+                if (expenseChart) {
+                    expenseChart.data.labels = labels.length ? labels : ['No Data'];
+                    expenseChart.data.datasets[0].data = data.length ? data : [0];
+                    expenseChart.update();
+                    return;
+                }
+
+                expenseChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels.length ? labels : ['No Data'],
+                        datasets: [{
+                            label: 'Expenses (₹)',
+                            data: data.length ? data : [0],
+                            backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'Amount (₹)' }
+                            },
+                            x: {
+                                title: { display: true, text: 'Category' }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => `₹${context.raw}`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function clearForm() {
+                document.getElementById('category').value = '';
+                document.getElementById('description').value = '';
+                document.getElementById('amount').value = '';
+            }
+
+            function openIncomeModal() {
+                document.getElementById('incomeModal').style.display = 'flex';
+                document.querySelector('.modal-content').style.transform = 'scale(1)';
+            }
+
+            function closeIncomeModal() {
+                document.querySelector('.modal-content').style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    document.getElementById('incomeModal').style.display = 'none';
+                    document.getElementById('newIncome').value = '';
+                    document.getElementById('incomeReason').value = '';
+                }, 300);
+            }
+
+            function prevMonth() {
+                currentMonth.setMonth(currentMonth.getMonth() - 1);
+                debouncedUpdateUI();
+            }
+
+            function nextMonth() {
+                currentMonth.setMonth(currentMonth.getMonth() + 1);
+                debouncedUpdateUI();
+            }
+
+            // Initialize
+            loadData();
+            debouncedUpdateUI();
+        </script>
+    </div>
+</body>
+</html>
